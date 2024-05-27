@@ -1,0 +1,64 @@
+{
+  "name": "hono-event-emitter",
+  "version": "0.9.0",
+  "author": {
+    "name": "David Havl",
+    "email": "contact@davidhavl.com",
+    "url": "https://github.com/DavidHavl"
+  },
+  "description": "Event Emitter middleware for Hono",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "vitest --run",
+    "coverage": "vitest run --coverage",
+    "build": "tsup ./src/index.ts --format esm,cjs --dts",
+    "lint": "biome lint ./src/*.ts",
+    "lint:fix": "biome lint --apply ./src/*.ts",
+    "format": "biome format ./src/*.ts",
+    "format:fix": "biome format --write ./src/*.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "hono",
+    "event-emitter",
+    "cloudflare",
+    "workers",
+    "nodejs",
+    "events"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DavidHavl/hono-event-emitter.git"
+  },
+  "homepage": "https://github.com/DavidHavl/hono-event-emitter",
+  "bugs": {
+    "url": "https://github.com/DavidHavl/hono-event-emitter/issues"
+  },
+  "peerDependencies": {
+    "hono": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.7.3",
+    "@vitest/coverage-v8": "^1.6.0",
+    "hono": "^3.11.7",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.4"
+  }
+}
