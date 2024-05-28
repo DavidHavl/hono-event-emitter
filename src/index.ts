@@ -13,8 +13,38 @@ export interface Emitter<EventHandlerPayloads> {
 }
 
 /**
- * Function to create an Event Emitter instance.
- * @returns {Emitter}
+ * Create Event Emitter instance.
+ *
+ * @param {EventHandlers} eventHandlers - Event handlers to be registered.
+ * @returns {Emitter} The EventEmitter instance.
+ *
+ * @example
+ * ```ts
+ * type AvailableEvents = {
+ *   // event key: payload type
+ *   'foo': number;
+ *   'bar': { item: { id: string }, c: Context };
+ * };
+ *
+ * // Define event handlers
+ * const handlers: EventHandlers<AvailableEvents> = {
+ *   'foo': [
+ *     (payload) => { console.log('Foo:', payload) }  // payload will be inferred as number
+ *   ]
+ * }
+ *
+ * // Initialize emitter with handlers
+ * const ee = createEmitter<AvailableEvents>(handlers)
+ *
+ * // AND/OR add more listeners on the fly.
+ * ee.on('bar', ({ item, c }) => {
+ *   c.get('logger').log('Bar:', item.id)
+ * })
+ *
+ * // Use the emitter to emit events.
+ * ee.emit('foo', 42) // Payload will be expected to be of a type number
+ * ee.emit('bar', { item: { id: '12345678' }, c }) // Payload will be expected to be of a type { item: { id: string }, c: Context }
+ * ```
  */
 export const createEmitter = <EventHandlerPayloads>(
   eventHandlers?: EventHandlers<EventHandlerPayloads>,
@@ -78,9 +108,49 @@ export const createEmitter = <EventHandlerPayloads>(
 };
 
 /**
- * Function to create an Event Emitter Middleware.
- * This function takes an optional parameter of eventHandlers and returns a MiddlewareHandler.
- * Inside this function, an instance of the event emitter is created and set to context under the key 'emitter'.
+ * Event Emitter Middleware for Hono.
+ *
+ * @param {EventHandlers} eventHandlers - Event handlers to be registered.
+ * @returns {MiddlewareHandler} The middleware handler function.
+ *
+ * @example
+ * ```ts
+ * type AvailableEvents = {
+ *   // event key: payload type
+ *   'foo': number;
+ *   'bar': { item: { id: string }, c: Context };
+ * };
+ *
+ * // Define event handlers
+ * const handlers: EventHandlers<AvailableEvents> = {
+ *   'foo': [
+ *     (payload) => { console.log('Foo:', payload) }  // payload will be inferred as number
+ *   ]
+ * }
+ *
+ * const app = new Hono({ Variables: { emitter: Emitter<AvailableEvents> }})
+ *
+ * // Register the emitter middleware and provide it with the handlers
+ * app.use('\*', emitter(handlers))
+ *
+ * // AND/OR create event handler as "named function"
+ * const barEventHandler = ({ item, c }) => {
+ *   c.get('logger').log('Bar:', item.id)
+ * }
+ * // and register it inside middleware or route handler
+ * app.use('\*', (c, next) => {
+ *   c.get('emitter').on('bar', barEventHandler)
+ *   return next()
+ * })
+ *
+ * // Use the emitter in route handlers to emit events.
+ * app.post('/foo', async (c) => {
+ *   // The emitter is available under "emitter" key in the context.
+ *   c.get('emitter').emit('foo', 42) // Payload will be expected to be of a type number
+ *   c.get('emitter').emit('bar', { item: { id: '12345678' }, c }) // Payload will be expected to be of a type { item: { id: string }, c: Context }
+ *   return c.text('Success')
+ * })
+ * ```
  */
 export const emitter = <EventHandlerPayloads>(
   eventHandlers?: EventHandlers<EventHandlerPayloads>,
