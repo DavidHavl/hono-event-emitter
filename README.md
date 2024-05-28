@@ -6,30 +6,6 @@ It enables event driven code flow in hono applications (essential in large proje
 
 Inspired by event emitter concept in other frameworks such as [Fastify](https://github.com/Shiva127/fastify-event-bus), [Adonisjs](https://docs.adonisjs.com/guides/emitter) and others.
 
-Api is inspired by [mitt](https://github.com/developit/mitt/tree/main).
-
-
-<?xml version="1.0"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="100" height="20">
-<linearGradient id="a" x2="0" y2="100%">
-    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-    <stop offset="2" stop-opacity=".1"/>
-</linearGradient>
-
-<rect rx="3" width="60" height="20" fill="#555"/> <!-- Comment -->
-<rect rx="3" x="60" width="40" height="20" fill="#4c1"/>
-
-<path fill="#4c1" d="M58 0h4v20h-4z"/>
-
-<rect rx="3" width="100" height="20" fill="url(#a)"/>
-	<g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
-	    <text x="30" y="15" fill="#010101" fill-opacity=".3">coverage</text>
-	    <text x="30" y="14">coverage</text>
-	    <text x="80" y="15" fill="#010101" fill-opacity=".3">100%</text>
-	    <text x="80" y="14">100%</text>
-	</g>
-</svg>
-
 ## Installation
 
 ```sh
@@ -45,7 +21,7 @@ bun install hono-event-emitter
 
 ## Usage
 
-### There are 2 ways you can use this:
+### There are 2 ways you can use this with Hono:
 
 #### 1. As Hono middleware
 ```js
@@ -81,7 +57,7 @@ export default app
 ```
 
 You can also subscribe to events inside middlewares or route handlers, but you can only use named functions!
-The emitter is available in the context as `emitter` key, and when using named functions it will only be subscribed to once, even if the middleware is called multiple times.
+The emitter is available in the context as `emitter` key, and handlers (when using named functions) will only be subscribed to events once, even if the middleware is called multiple times.
 
 ```js
 // Define event handler as named function
