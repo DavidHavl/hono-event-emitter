@@ -283,6 +283,11 @@ app.delete('/todo/:id', async (c) => {
 export default app
 ```
 
+
+
+#### Typescript guards and typing in action:
+![Typescript guards and typing in action](assets/typescript.gif)
+
 ### NOTE:
 
 When assigning event handlers inside of middleware or route handlers, don't use anonymous or closure functions, only named functions!
