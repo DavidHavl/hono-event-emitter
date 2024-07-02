@@ -21,272 +21,324 @@ bun install hono-event-emitter
 
 ## Usage
 
-### There are 2 ways you can use this with Hono:
+#### There are 2 ways you can use this with Hono:
 
-#### 1. As Hono middleware
+### 1. As Hono middleware
+
+```js
+// event-handlers.js
+
+// Define event handlers
+export const handlers = {
+  'user:created': [
+    (c, payload) => {} // c is current Context, payload will be correctly inferred as User
+  ],
+  'user:deleted': [
+    (c, payload) => {} // c is current Context, payload will be inferred as string
+  ],
+  'foo': [
+    (c, payload) => {} // c is current Context, payload will be inferred as { bar: number }
+  ]
+}
+
+// You can also define single event handler as named function
+// export const userCreatedHandler = (c, user) => {
+//   // c is current Context, payload will be inferred as User
+//   // ...
+//   console.log('New user created:', user)
+// }
+
+```
+
 ```js
 // app.js
 
 import { emitter } from 'hono-event-emitter'
+import { handlers, userCreatedHandler } from './event-handlers'
 import { Hono } from 'hono'
 
-// Define event handlers
-const handlers = {
-  'todo:created': [
-    (payload, c) => { console.log('New todo created:', payload) }
-  ],
-  'foo': [
-    (payload) => { console.log('Foo:', payload) }
-  ]
-}
-
+// Initialize the app with emitter type
 const app = new Hono()
 
 // Register the emitter middleware and provide it with the handlers
 app.use('*', emitter(handlers))
 
-app.post('/todo', async (c) => {
+// You can also setup "named function" as event listener inside middleware or route handler
+// app.use((c, next) => {
+//   c.get('emitter').on('user:created', userCreatedHandler)
+//   return next()
+// })
+
+// Routes
+app.post('/user', async (c) => {
   // ...
-  // The emitter is available under "emitter" key in the context. Use emit method to emit events
-  c.get('emitter').emit('foo', 42)
-  // You can also pass along the context
-  c.get('emitter').emit('todo:created', { todo, c })
+  // Emit event and pass current context plus the payload
+  c.get('emitter').emit('user:created', c, user)
+  // ...
+})
+
+app.delete('/user/:id', async (c) => {
+  // ...
+  // Emit event and pass current context plus the payload
+  c.get('emitter').emit('user:deleted', c, id)
+  // ...
 })
 
 export default app
 ```
 
-You can also subscribe to events inside middlewares or route handlers, but you can only use named functions!
 The emitter is available in the context as `emitter` key, and handlers (when using named functions) will only be subscribed to events once, even if the middleware is called multiple times.
 
-```js
-// Define event handler as named function
-const todoCreatedHandler = ({ todo, c }) => {
-  console.log('New todo created:', todo)
-}
-// ...
-app.use((c) => {
-  // ...
-  // Subscribe to event
-  c.get('emitter').on('todo:created', todoCreatedHandler)
-})
+As seen above (commented out) you can also subscribe to events inside middlewares or route handlers, but you can only use named functions to prevent duplicates!
 
-app.post('/todo', async (c) => {
-  // ...
-    // Emit event
-  c.get('emitter').emit('todo:created', { todo, c });
-})
-// ...
-```
+### 2 Standalone
 
-#### 2 Standalone
 
 ```js
-// app.js
+// events.js
 
 import { createEmitter } from 'hono-event-emitter'
-import { Hono } from 'hono'
 
-
-// Setup event listeners
-const handlers = {
-  'todo:created': [
-    (payload) => { console.log('New todo created:', payload) }
+// Define event handlers
+export const handlers = {
+  'user:created': [
+    (c, payload) => {} // c is current Context, payload will be whatever you pass to emit method
   ],
-  'todo:deleted': [
-    ({ id, c }) => { console.log(`Todo ${id} has ben deleted:`) }
+  'user:deleted': [
+    (c, payload) => {} // c is current Context, payload will be whatever you pass to emit method
+  ],
+  'foo': [
+    (c, payload) => {} // c is current Context, payload will be whatever you pass to emit method
   ]
 }
 
-// Initialize emitter
-const ee = createEmitter(handlers)
+// Initialize emitter with handlers
+const emitter = createEmitter(handlers)
 
-// You can also add more listeners later
-ee.on('foo', (payload) => { console.log('Foo:', payload) })
-
-// Initialize the hono app
-const app = new Hono()
-
-app.post('/todo', async (c) => {
-  // ...
-  // Emit event
-  ee.emit('todo:created', todo)
+// And you can add more listeners on the fly.
+// Here you CAN use anonymous or closure function because .on() is only called once.
+emitter.on('user:updated', (c, payload) => {
+    console.log('User updated:', payload)
 })
 
-app.delete('/todo/:id', async (c) => {
-  // ...
-  // Emit event
-  ee.emit('todo:deleted', { id, c })
+export default emitter
+
+```
+
+```js
+// app.js
+
+import emitter from './events'
+import { Hono } from 'hono'
+
+// Initialize the app
+const app = new Hono()
+
+app.post('/user', async (c) => {
+    // ...
+    // Emit event and pass current context plus the payload
+    emitter.emit('user:created', c, user)
+    // ...
+})
+
+app.delete('/user/:id', async (c) => {
+    // ...
+    // Emit event and pass current context plus the payload
+    emitter.emit('user:deleted', c, id )
+    // ...
 })
 
 export default app
 ```
 
-#### Websocket example:
+## Typescript
 
-```js
-// app.js
+### 1. As hono middleware
 
-import { Hono } from 'hono'
-import { upgradeWebSocket } from 'hono/cloudflare-workers'
-import { emitter } from 'hono-event-emitter'
+```ts
+// types.ts
 
-const app = new Hono()
+import type { Emitter } from 'hono-event-emitter'
 
-// Register the emitter middleware
-app.use('*', emitter())
+export type User = {
+    id: string,
+    title: string,
+    role: string
+}
 
-app.get('/ws', upgradeWebSocket((c) => {
-    // Define handler
-    function sendMessage(ws) {
-        return (message) => ws.send(message);
-    }
-    
-    return {
-      onOpen(event, ws) {
-        // Setup event listener when connection is opened
-        c.get('emitter').on('message', sendMessage(ws))
-        console.log('Connection opened')
-      },
-      onClose: (event, ws) => {
-        // Remove event listener when connection is closed
-        c.get('emitter').off('message', sendMessage(ws))
-        console.log('Connection closed')
-      },
-    }
-  })
-)
+export type AvailableEvents = {
+    // event key: payload type
+    'user:created': User;
+    'user:deleted': string;
+    'foo': { bar: number };
+};
 
-app.post('/send-message', async (c) => {
-  // Emit event
-  c.get('emitter').emit('message', 'Hello from server!')
-  c.json({ message: 'Message sent' })
-})
+export type Env = {
+    Bindings: {};
+    Variables: {
+        // Define emitter variable type
+        emitter: Emitter<AvailableEvents>;
+    };
+};
+
 
 ```
 
-### Typescript
+```ts
+// event-handlers.ts
 
-#### 1. As hono middleware
+import { defineHandlers } from 'hono-event-emitter'
+import { AvailableEvents } from './types'
+
+// Define event handlers
+export const handlers = defineHandlers<AvailableEvents>({
+  'user:created': [
+    (c, user) => {} // c is current Context, payload will be correctly inferred as User
+  ],
+  'user:deleted': [
+    (c, payload) => {} // c is current Context, payload will be inferred as string
+  ],
+  'foo': [
+    (c, payload) => {} // c is current Context, payload will be inferred as { bar: number }
+  ]
+})
+
+// You can also define single event handler as named function using defineHandler to leverage typings
+// export const userCreatedHandler = defineHandler<AvailableEvents, 'user:created'>((c, user) => {
+//   // c is current Context, payload will be inferred as User
+//   // ...
+//   console.log('New user created:', user)
+// })
+
+```
 
 ```ts
 // app.ts
 
 import { emitter, type Emitter, type EventHandlers } from 'hono-event-emitter'
+import { handlers, userCreatedHandler } from './event-handlers'
 import { Hono } from 'hono'
+import { Env } from './types'
 
-type Todo = {
-  id: string,
-  title: string,
-  completed: boolean
-}
-
-type AvailableEvents = {
-  // event key: payload type
-  'todo:created': { todo: Todo, c: Context };
-  'todo:deleted': { id: string };
-  'foo': number;
-};
-
-const handlers: EventHandlers<AvailableEvents> = {
-  'todo:deleted': [
-    (payload) => {} // payload will be inferred as { id: string }
-  ]
-}
-
-const todoCreatedHandler = ({ todo: Todo, c: Context }) => {
-  // ...
-  console.log('New todo created:', todo)
-}
-
-// Initialize the app with emitter type
-const app = new Hono<{ Variables: { emitter: Emitter<AvailableEvents> }}>()
+// Initialize the app
+const app = new Hono<Env>()
 
 // Register the emitter middleware and provide it with the handlers
 app.use('*', emitter(handlers))
 
-// And/Or setup event listeners as "named function" inside middleware or route handler
-app.use((c) => {
-  c.get('emitter').on('todo:created', todoCreatedHandler)
+// You can also setup "named function" as event listener inside middleware or route handler
+// app.use((c, next) => {
+//   c.get('emitter').on('user:created', userCreatedHandler)
+//   return next()
+// })
+
+// Routes
+app.post('/user', async (c) => {
+  // ...
+  // Emit event and pass current context plus the payload (User type)
+  c.get('emitter').emit('user:created', c, user)
+  // ...
 })
 
-app.post('/todo', async (c) => {
+app.delete('/user/:id', async (c) => {
   // ...
-  // Emit event and pass the payload (todo object) plus context
-  c.get('emitter').emit('todo:created', { todo, c })
-})
-
-app.delete('/todo/:id', async (c) => {
+  // Emit event and pass current context plus the payload (string)
+  c.get('emitter').emit('user:deleted', c, id)
   // ...
-  // Emit event
-  c.get('emitter').emit('todo:deleted', { id })
 })
 
 export default app
 ```
 
-#### 2. Standalone:
+### 2. Standalone:
 
 ```ts
-// app.ts
+// types.ts
 
-import { createEmitter, type Emitter, type EventHandlers } from 'hono-event-emitter'
-import { Hono } from 'hono'
-
-type Todo = {
+type User = {
   id: string,
   title: string,
-  completed: boolean
+  role: string
 }
 
 type AvailableEvents = {
   // event key: payload type
-  'todo:created': { todo: Todo, c: Context };
-  'todo:deleted': { id: string },
-  'foo': number;
+  'user:created': User;
+  'user:updated': User;
+  'user:deleted': string,
+  'foo': { bar: number };
 }
 
-// Define event listeners
-const handlers: EventHandlers<AvailableEvents> = {
-  'todo:deleted': [
-    (payload) => {} // payload will be inferred as { id: string }
+```
+
+```ts
+// events.ts
+
+import { createEmitter, defineHandlers, type Emitter, type EventHandlers } from 'hono-event-emitter'
+import { AvailableEvents } from './types'
+
+// Define event handlers
+export const handlers = defineHandlers<AvailableEvents>({
+  'user:created': [
+    (c, user) => {} // c is current Context, payload will be correctly inferred as User
+  ],
+  'user:deleted': [
+    (c, payload) => {} // c is current Context, payload will be inferred as string
+  ],
+  'foo': [
+    (c, payload) => {} // c is current Context, payload will be inferred as { bar: number }
   ]
-}
+})
 
-// And you can also define extra event handler as named function
-const todoCreatedHandler = ({ todo: Todo, c: Context }) => {
-  // ...
-  console.log('New todo created:', todo)
-}
+// You can also define single event handler using defineHandler to leverage typings
+// export const userCreatedHandler = defineHandler<AvailableEvents, 'user:created'>((c, payload) => {
+//     // c is current Context, payload will be correctly inferred as User
+//     // ...
+//     console.log('New user created:', payload)
+// })
 
 // Initialize emitter with handlers
-const ee = createEmitter<AvailableEvents>(handlers)
+const emitter = createEmitter(handlers)
 
-// Add more listeners on the fly. Here you can use anonymous or closure functions.
-ee.on('todo:deleted', (payload) => { console.log('Todo deleted:', payload) }) // Payload will be inferred as { id: string }
+// emitter.on('user:created', userCreatedHandler)
+
+// And you can add more listeners on the fly.
+// Here you can use anonymous or closure function because .on() is only called once.
+emitter.on('user:updated', (c, payload) => { // Payload will be correctly inferred as User
+    console.log('User updated:', payload)
+})
+
+export default emitter
+
+```
+
+```ts
+// app.ts
+
+import emitter from './events'
+import { Hono } from 'hono'
 
 // Initialize the app
 const app = new Hono()
 
-app.post('/todo', async (c) => {
+app.post('/user', async (c) => {
   // ...
-  // Emit event
-  ee.emit('todo:created', { todo, c }) // payload  will be expected to be { todo: Todo, c: Context } type
+  // Emit event and pass current context plus the payload (User)
+  emitter.emit('user:created', c, user)
+  // ...
 })
 
-app.delete('/todo/:id', async (c) => {
+app.delete('/user/:id', async (c) => {
   // ...
-  // Emit event
-  ee.emit('todo:deleted', { id }) // payload  will be expected to be { id: string } type
+  // Emit event and pass current context plus the payload (string)
+  emitter.emit('user:deleted', c, id )
+  // ...
 })
 
 export default app
 ```
 
 
-
-#### Typescript guards and typing in action:
-![Typescript guards and typing in action](assets/typescript.gif)
 
 ### NOTE:
 

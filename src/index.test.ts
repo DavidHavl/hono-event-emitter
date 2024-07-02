@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { expect, vi } from 'vitest';
-import { emitter, createEmitter, type Emitter, type EventHandlers } from '../src';
+import { emitter, createEmitter, type Emitter, type EventHandlers, defineHandler, defineHandlers } from '../src';
 
 describe('EventEmitter', () => {
   describe('Used inside of route handlers', () => {
@@ -8,12 +8,13 @@ describe('EventEmitter', () => {
       type EventHandlerPayloads = {
         'todo:created': { id: string; text: string };
       };
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
 
-      const handler = (_payload: EventHandlerPayloads['todo:created']) => {};
+      const handler = defineHandler<EventHandlerPayloads, 'todo:created'>((_c, _payload) => {});
 
       const spy = vi.fn(handler);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
       app.use('*', emitter());
 
@@ -22,27 +23,30 @@ describe('EventEmitter', () => {
         return next();
       });
 
+      let currentContext = null;
       app.post('/todo', (c) => {
-        c.get('emitter').emit('todo:created', { id: '2', text: 'Buy milk' });
+        currentContext = c;
+        c.get('emitter').emit('todo:created', c, { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
       const res = await app.request('http://localhost/todo', { method: 'POST' });
       expect(res).not.toBeNull();
       expect(res.status).toBe(200);
-      expect(spy).toHaveBeenCalledWith({ id: '2', text: 'Buy milk' });
+      expect(spy).toHaveBeenCalledWith(currentContext, { id: '2', text: 'Buy milk' });
     });
 
     it('Should not subscribe same handler to same event twice inside of route handler', async () => {
       type EventHandlerPayloads = {
         'todo:created': { id: string; text: string };
       };
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
 
-      const handler = (_payload: EventHandlerPayloads['todo:created']) => {};
+      const handler = defineHandler<EventHandlerPayloads, 'todo:created'>((_c, _payload) => {});
 
       const spy = vi.fn(handler);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
       app.use('*', emitter());
 
@@ -52,7 +56,7 @@ describe('EventEmitter', () => {
       });
 
       app.post('/todo', (c) => {
-        c.get('emitter').emit('todo:created', { id: '2', text: 'Buy milk' });
+        c.get('emitter').emit('todo:created', c, { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
@@ -67,23 +71,27 @@ describe('EventEmitter', () => {
         'todo:created': { id: string; text: string };
       };
 
-      const handlers: EventHandlers<EventHandlerPayloads> = {
-        'todo:created': [vi.fn((_payload) => {})],
-      };
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const handlers = defineHandlers<EventHandlerPayloads>({
+        'todo:created': [vi.fn((_c, _payload) => {})],
+      });
+
+      const app = new Hono<Env>();
 
       app.use('*', emitter(handlers));
 
+      let currentContext = null;
       app.post('/todo', (c) => {
-        c.get('emitter').emit('todo:created', { id: '2', text: 'Buy milk' });
+        currentContext = c;
+        c.get('emitter').emit('todo:created', c, { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
       const res = await app.request('http://localhost/todo', { method: 'POST' });
       expect(res).not.toBeNull();
       expect(res.status).toBe(200);
-      expect(handlers['todo:created']?.[0]).toHaveBeenCalledWith({ id: '2', text: 'Buy milk' });
+      expect(handlers['todo:created']?.[0]).toHaveBeenCalledWith(currentContext, { id: '2', text: 'Buy milk' });
     });
   });
 
@@ -94,36 +102,42 @@ describe('EventEmitter', () => {
         'todo:deleted': { id: string };
       };
 
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
+
       const handlers: EventHandlers<EventHandlerPayloads> = {
         'todo:created': [vi.fn((_payload) => {})],
       };
 
       const ee = createEmitter<EventHandlerPayloads>(handlers);
 
-      const todoDeletedHandler = vi.fn((_payload: EventHandlerPayloads['todo:deleted']) => {});
+      const todoDeletedHandler = vi.fn(defineHandler<EventHandlerPayloads, 'todo:deleted'>((_c, _payload) => {}));
 
       ee.on('todo:deleted', todoDeletedHandler);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
+      let todoCreatedContext = null;
       app.post('/todo', (c) => {
-        ee.emit('todo:created', { id: '2', text: 'Buy milk' });
+        todoCreatedContext = c;
+        ee.emit('todo:created', c, { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
-      app.post('/todo/123', (c) => {
-        ee.emit('todo:deleted', { id: '3' });
+      let todoDeletedContext = null;
+      app.delete('/todo/123', (c) => {
+        todoDeletedContext = c;
+        ee.emit('todo:deleted', c, { id: '3' });
         return c.json({ message: 'Todo deleted' });
       });
 
       const res = await app.request('http://localhost/todo', { method: 'POST' });
       expect(res).not.toBeNull();
       expect(res.status).toBe(200);
-      expect(handlers['todo:created']?.[0]).toHaveBeenCalledWith({ id: '2', text: 'Buy milk' });
-      const res2 = await app.request('http://localhost/todo/123', { method: 'POST' });
+      expect(handlers['todo:created']?.[0]).toHaveBeenCalledWith(todoCreatedContext, { id: '2', text: 'Buy milk' });
+      const res2 = await app.request('http://localhost/todo/123', { method: 'DELETE' });
       expect(res2).not.toBeNull();
       expect(res2.status).toBe(200);
-      expect(todoDeletedHandler).toHaveBeenCalledWith({ id: '3' });
+      expect(todoDeletedHandler).toHaveBeenCalledWith(todoDeletedContext, { id: '3' });
     });
 
     it('Should work assigning event handlers via standalone on()', async () => {
@@ -132,25 +146,31 @@ describe('EventEmitter', () => {
         'todo:deleted': { id: string };
       };
 
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
+
       const ee = createEmitter<EventHandlerPayloads>();
 
-      const todoDeletedHandler = (_payload: EventHandlerPayloads['todo:deleted']) => {};
+      const todoDeletedHandler = defineHandler<EventHandlerPayloads, 'todo:deleted'>(
+        (_c, _payload: EventHandlerPayloads['todo:deleted']) => {},
+      );
 
       const spy = vi.fn(todoDeletedHandler);
 
       ee.on('todo:deleted', spy);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
-      app.post('/todo', (c) => {
-        ee.emit('todo:deleted', { id: '2' });
+      let currentContext = null;
+      app.delete('/todo/123', (c) => {
+        currentContext = c;
+        ee.emit('todo:deleted', c, { id: '2' });
         return c.json({ message: 'Todo created' });
       });
 
-      const res = await app.request('http://localhost/todo', { method: 'POST' });
+      const res = await app.request('http://localhost/todo/123', { method: 'DELETE' });
       expect(res).not.toBeNull();
       expect(res.status).toBe(200);
-      expect(spy).toHaveBeenCalledWith({ id: '2' });
+      expect(spy).toHaveBeenCalledWith(currentContext, { id: '2' });
     });
 
     it('Should work removing event handlers via off() method', async () => {
@@ -159,18 +179,22 @@ describe('EventEmitter', () => {
         'todo:deleted': { id: string };
       };
 
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
+
       const ee = createEmitter<EventHandlerPayloads>();
 
-      const todoDeletedHandler = (_payload: EventHandlerPayloads['todo:deleted']) => {};
+      const todoDeletedHandler = defineHandler<EventHandlerPayloads, 'todo:deleted'>(
+        (_c, _payload: EventHandlerPayloads['todo:deleted']) => {},
+      );
 
       const spy = vi.fn(todoDeletedHandler);
 
       ee.on('todo:deleted', spy);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
       app.post('/todo', (c) => {
-        ee.emit('todo:deleted', { id: '2' });
+        ee.emit('todo:deleted', c, { id: '2' });
         ee.off('todo:deleted', spy);
         return c.json({ message: 'Todo created' });
       });
@@ -185,10 +209,16 @@ describe('EventEmitter', () => {
         'todo:deleted': { id: string };
       };
 
+      type Env = { Variables: { emitter: Emitter<EventHandlerPayloads> } };
+
       const ee = createEmitter<EventHandlerPayloads>();
 
-      const todoDeletedHandler = (_payload: EventHandlerPayloads['todo:deleted']) => {};
-      const todoDeletedHandler2 = (_payload: EventHandlerPayloads['todo:deleted']) => {};
+      const todoDeletedHandler = defineHandler<EventHandlerPayloads, 'todo:deleted'>(
+        (_c, _payload: EventHandlerPayloads['todo:deleted']) => {},
+      );
+      const todoDeletedHandler2 = defineHandler<EventHandlerPayloads, 'todo:deleted'>(
+        (_c, _payload: EventHandlerPayloads['todo:deleted']) => {},
+      );
 
       const spy = vi.fn(todoDeletedHandler);
       const spy2 = vi.fn(todoDeletedHandler2);
@@ -196,10 +226,10 @@ describe('EventEmitter', () => {
       ee.on('todo:deleted', spy);
       ee.on('todo:deleted', spy2);
 
-      const app = new Hono<{ Variables: { emitter: Emitter<EventHandlerPayloads> } }>();
+      const app = new Hono<Env>();
 
       app.post('/todo', (c) => {
-        ee.emit('todo:deleted', { id: '2' });
+        ee.emit('todo:deleted', c, { id: '2' });
         ee.off('todo:deleted');
         return c.json({ message: 'Todo created' });
       });
