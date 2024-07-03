@@ -1,10 +1,15 @@
 # Event Emitter middleware for Hono
 
-Minimal, lightweight and edge compatible Event Emitter middleware for [Hono](https://github.com/honojs/hono).
+### Minimal, lightweight and edge compatible Event Emitter middleware for [Hono](https://github.com/honojs/hono).
 
-It enables event driven code flow in hono applications (essential in large projects).
+It enables event driven logic flow in hono applications (essential in larger projects or projects with a lot of interactions between features).
 
-Inspired by event emitter concept in other frameworks such as [Fastify](https://github.com/Shiva127/fastify-event-bus), [Adonisjs](https://docs.adonisjs.com/guides/emitter) and others.
+Inspired by event emitter concept in other frameworks such 
+as [Adonis.js](https://docs.adonisjs.com/guides/emitter), [Nest.js](https://docs.nestjs.com/techniques/events), [Hapi.js](https://github.com/hapijs/podium), [Laravel](https://laravel.com/docs/11.x/events), [Sails.js](https://sailsjs.com/documentation/concepts/extending-sails/hooks/events), [Meteor](https://github.com/Meteor-Community-Packages/Meteor-EventEmitter) and others.
+
+
+
+For more usage examples, see the [tests](src/index.test.ts) or my [Hono REST API starter kit](https://github.com/DavidHavl/hono-rest-api-starter)
 
 ## Installation
 
@@ -346,7 +351,7 @@ When assigning event handlers inside of middleware or route handlers, don't use 
 This is because anonymous functions or closures in javascript are created as new object every time and therefore can't be easily checked for equality/duplicates.
 
 
-For more usage examples, see the [tests](src/index.test.ts).
+For more usage examples, see the [tests](src/index.test.ts) or [Hono REST API starter kit](https://github.com/DavidHavl/hono-rest-api-starter)
 
 ## Author
 
