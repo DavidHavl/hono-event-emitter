@@ -8,16 +8,17 @@ import type { Context, Env, MiddlewareHandler } from 'hono';
 export type EventKey = string | symbol;
 export type EventHandler<T, E extends Env = Env> = (c: Context<E>, payload: T) => void | Promise<void>;
 export type EventHandlers<T> = { [K in keyof T]?: EventHandler<T[K]>[] };
+export type EventPayloadMap = { [key: string]: unknown };
 export type EmitAsyncOptions = { mode: 'concurrent' | 'sequencial' };
 
-export interface Emitter<EventHandlerPayloads> {
-  on<Key extends keyof EventHandlerPayloads>(key: Key, handler: EventHandler<EventHandlerPayloads[Key]>): void;
-  off<Key extends keyof EventHandlerPayloads>(key: Key, handler?: EventHandler<EventHandlerPayloads[Key]>): void;
-  emit<Key extends keyof EventHandlerPayloads>(key: Key, c: Context, payload: EventHandlerPayloads[Key]): void;
-  emitAsync<Key extends keyof EventHandlerPayloads>(
+export interface Emitter<EPMap extends EventPayloadMap> {
+  on<Key extends keyof EPMap>(key: Key, handler: EventHandler<EPMap[Key]>): void;
+  off<Key extends keyof EPMap>(key: Key, handler?: EventHandler<EPMap[Key]>): void;
+  emit<Key extends keyof EPMap>(key: Key, c: Context, payload: EPMap[Key]): void;
+  emitAsync<Key extends keyof EPMap>(
     key: Key,
     c: Context,
-    payload: EventHandlerPayloads[Key],
+    payload: EPMap[Key],
     options?: EmitAsyncOptions,
   ): Promise<void>;
 }
@@ -27,9 +28,9 @@ export interface Emitter<EventHandlerPayloads> {
  * @param {EventHandler} handler - The event handlers.
  * @returns The event handler.
  */
-export const defineHandler = <T, K extends keyof T, E extends Env = Env>(
-  handler: EventHandler<T[K], E>,
-): EventHandler<T[K], E> => {
+export const defineHandler = <EPMap extends EventPayloadMap, Key extends keyof EPMap, E extends Env = Env>(
+  handler: EventHandler<EPMap[Key], E>,
+): EventHandler<EPMap[Key], E> => {
   return handler;
 };
 
@@ -38,7 +39,9 @@ export const defineHandler = <T, K extends keyof T, E extends Env = Env>(
  * @param {EventHandler[]} handlers - An object where each key is an event type and the value is an array of event handlers.
  * @returns The event handlers.
  */
-export const defineHandlers = <T, E extends Env = Env>(handlers: { [K in keyof T]?: EventHandler<T[K], E>[] }) => {
+export const defineHandlers = <EPMap extends EventPayloadMap, E extends Env = Env>(
+  handlers: { [K in keyof EPMap]?: EventHandler<EPMap[K], E>[] },
+): { [K in keyof EPMap]?: EventHandler<EPMap[K], E>[] } => {
   return handlers;
 };
 
@@ -109,9 +112,7 @@ export const defineHandlers = <T, E extends Env = Env>(handlers: { [K in keyof T
  * ```
  *
  */
-export const createEmitter = <EventHandlerPayloads>(
-  eventHandlers?: EventHandlers<EventHandlerPayloads>,
-): Emitter<EventHandlerPayloads> => {
+export const createEmitter = <EPMap extends EventPayloadMap>(eventHandlers?: EventHandlers<EPMap>): Emitter<EPMap> => {
   // A map of event keys and their corresponding event handlers.
   const handlers: Map<EventKey, EventHandler<unknown>[]> = eventHandlers
     ? new Map(Object.entries(eventHandlers))
@@ -124,14 +125,14 @@ export const createEmitter = <EventHandlerPayloads>(
      * @param {Function} handler Function that is invoked when the specified event occurs
      * @throws {TypeError} If the handler is not a function
      */
-    on<Key extends keyof EventHandlerPayloads>(key: Key, handler: EventHandler<EventHandlerPayloads[Key]>) {
+    on<Key extends keyof EPMap>(key: Key, handler: EventHandler<EPMap[Key]>) {
       if (typeof handler !== 'function') {
         throw new TypeError('The handler must be a function');
       }
       if (!handlers.has(key as EventKey)) {
         handlers.set(key as EventKey, []);
       }
-      const handlerArray = handlers.get(key as EventKey) as Array<EventHandler<EventHandlerPayloads[Key]>>;
+      const handlerArray = handlers.get(key as EventKey) as Array<EventHandler<EPMap[Key]>>;
       if (!handlerArray.includes(handler)) {
         handlerArray.push(handler);
       }
@@ -143,7 +144,7 @@ export const createEmitter = <EventHandlerPayloads>(
      * @param {string|symbol} key Type of event to unregister `handler` from
      * @param {Function} handler - Handler function to remove
      */
-    off<Key extends keyof EventHandlerPayloads>(key: Key, handler?: EventHandler<EventHandlerPayloads[Key]>) {
+    off<Key extends keyof EPMap>(key: Key, handler?: EventHandler<EPMap[Key]>) {
       if (!handler) {
         handlers.delete(key as EventKey);
       } else {
@@ -162,9 +163,9 @@ export const createEmitter = <EventHandlerPayloads>(
      * Triggers all event handlers associated with the specified key.
      * @param {string|symbol} key - The event key
      * @param {Context} c - The current context object
-     * @param {EventHandlerPayloads[keyof EventHandlerPayloads]} payload - Data passed to each invoked handler
+     * @param {EventPayloadMap[keyof EventPayloadMap]} payload - Data passed to each invoked handler
      */
-    emit<Key extends keyof EventHandlerPayloads>(key: Key, c: Context, payload: EventHandlerPayloads[Key]) {
+    emit<Key extends keyof EPMap>(key: Key, c: Context, payload: EPMap[Key]) {
       const handlerArray = handlers.get(key as EventKey);
       if (handlerArray) {
         for (const handler of handlerArray) {
@@ -178,14 +179,14 @@ export const createEmitter = <EventHandlerPayloads>(
      * Asynchronously triggers all event handlers associated with the specified key.
      * @param {string|symbol} key - The event key
      * @param {Context} c - The current context object
-     * @param {EventHandlerPayloads[keyof EventHandlerPayloads]} payload - Data passed to each invoked handler
+     * @param {EventPayloadMap[keyof EventPayloadMap]} payload - Data passed to each invoked handler
      * @param {EmitAsyncOptions} options - Options.
      * @throws {AggregateError} If any handler encounters an error.
      */
-    async emitAsync<Key extends keyof EventHandlerPayloads>(
+    async emitAsync<Key extends keyof EPMap>(
       key: Key,
       c: Context,
-      payload: EventHandlerPayloads[Key],
+      payload: EPMap[Key],
       options: EmitAsyncOptions = { mode: 'concurrent' },
     ) {
       const handlerArray = handlers.get(key as EventKey);
@@ -293,11 +294,9 @@ export const createEmitter = <EventHandlerPayloads>(
  * })
  * ```
  */
-export const emitter = <EventHandlerPayloads>(
-  eventHandlers?: EventHandlers<EventHandlerPayloads>,
-): MiddlewareHandler => {
+export const emitter = <EPMap extends EventPayloadMap>(eventHandlers?: EventHandlers<EPMap>): MiddlewareHandler => {
   // Create new instance to share with any middleware and handlers
-  const instance = createEmitter<EventHandlerPayloads>(eventHandlers);
+  const instance = createEmitter<EPMap>(eventHandlers);
   return async (c, next) => {
     c.set('emitter', instance);
     await next();

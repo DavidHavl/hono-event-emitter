@@ -358,8 +358,8 @@ export default app
 Creates a Hono middleware that adds an event emitter to the context.
 
 ```ts
-function emitter<EventHandlerPayloads>(
-        eventHandlers?: EventHandlers<EventHandlerPayloads>
+function emitter<EPMap extends EventPayloadMap>(
+    eventHandlers?: EventHandlers<EPMap>
 ): MiddlewareHandler
 ```
 
@@ -380,9 +380,9 @@ app.use(emitter(eventHandlers));
 Creates new instance of event emitter with provided handlers. This is usefull when you want to use the emitter as standalone feature instead of Hono middleware.
 
 ```ts
-function createEmitter<EventHandlerPayloads>(
-        eventHandlers?: EventHandlers<EventHandlerPayloads>
-): Emitter<EventHandlerPayloads>
+function createEmitter<EPMap extends EventPayloadMap>(
+    eventHandlers?: EventHandlers<EPMap>
+): Emitter<EPMap>
 ```
 
 #### Parameters
@@ -403,17 +403,17 @@ const ee = createEmitter(eventHandlers);
 A utility function to define a typed event handler.
 
 ```ts
-function defineHandler<T, K extends keyof T, E extends Env = Env>(
-        handler: EventHandler<T[K], E>
-): EventHandler<T[K], E>
+function defineHandler<EPMap extends EventPayloadMap, Key extends keyof EPMap, E extends Env = Env>(
+    handler: EventHandler<EPMap[Key], E>,
+): EventHandler<EPMap[Key], E>
 ```
 
 #### Parameters
 - `handler`: The event handler function to be defined.
 
 #### Type parameters
-- `T`: The available event key to payload map i.e.: `type AvailableEvents = { 'user:created': { name: string } };`.
-- `K`: The key of the event type.
+- `EPMap`: The available event key to payload map i.e.: `type AvailableEvents = { 'user:created': { name: string } };`.
+- `Key`: The key of the event type.
 - `E`: (optional) - The Hono environment, so that the context within the handler has the right info.
 
 #### Returns
@@ -437,16 +437,16 @@ const handler = defineHandler<AvailableEvents, 'user:created'>((c, payload) => {
 A utility function to define multiple typed event handlers.
 
 ```ts
-function defineHandlers<T, E extends Env = Env>(
-        handlers: { [K in keyof T]?: EventHandler<T[K], E>[] }
-): { [K in keyof T]?: EventHandler<T[K], E>[] }
+function defineHandlers<EPMap extends EventPayloadMap, E extends Env = Env>(
+    handlers: { [K in keyof EPMap]?: EventHandler<EPMap[K], E>[] },
+): { [K in keyof EPMap]?: EventHandler<EPMap[K], E>[] }
 ```
 
 #### Parameters
 - `handlers`: An object containing event handlers for multiple event types/keys.
 
 #### Type parameters
-- `T`: The available event key to payload map i.e.: `type AvailableEvents = { 'user:created': { name: string } };`.
+- `EPMap`: The available event key to payload map i.e.: `type AvailableEvents = { 'user:created': { name: string } };`.
 - `E`: (optional) - The Hono environment, so that the context within the handler has the right info.
 
 #### Returns
@@ -478,9 +478,9 @@ Adds an event handler for the specified event key.
 #### Signature
 
 ```ts
-function on<Key extends keyof EventHandlerPayloads>(
+function on<Key extends keyof EventPayloadMap>(
         key: Key,
-        handler: EventHandler<EventHandlerPayloads[Key]>
+        handler: EventHandler<EventPayloadMap[Key]>
 ): void
 ```
 
@@ -497,24 +497,7 @@ function on<Key extends keyof EventHandlerPayloads>(
 
 #### Example
 
-Using within Hono middleware or request handler:
-```ts
-type AvailableEvents = {
-    'user:created': { name: string };
-};
-
-// Define event handler as named function, outside of the Hono middleware or request handler to prevent duplicates/memory leaks
-const handler = defineHandler<EventHandlerPayloads, 'user:created'>((c, user) => {
-   console.log('New user created:', user)
-})
-
-app.use(emitter<AvailableEvents>());
-
-app.use((c) => {
-    c.get('emitter').on('user:created', handler)    
-})
-```
-Using outside of Hono middleware or request handler:
+Using outside the Hono middleware or request handler:
 ```ts
 type AvailableEvents = {
     'user:created': { name: string };
@@ -526,6 +509,23 @@ ee.on('user:created', (c, user) => {
     console.log('New user created:', user)
 })
 ```
+Using within Hono middleware or request handler:
+```ts
+type AvailableEvents = {
+    'user:created': { name: string };
+};
+
+// Define event handler as named function, outside of the Hono middleware or request handler to prevent duplicates/memory leaks
+const handler = defineHandler<AvailableEvents, 'user:created'>((c, user) => {
+   console.log('New user created:', user)
+})
+
+app.use(emitter<AvailableEvents>());
+
+app.use((c) => {
+    c.get('emitter').on('user:created', handler)    
+})
+```
 
 ### off
 
@@ -534,14 +534,14 @@ Removes an event handler for the specified event key.
 #### Signature
 
 ```ts
-function off<Key extends keyof EventHandlerPayloads>(
+function off<Key extends keyof EventPayloadMap>(
     key: Key,
-    handler?: EventHandler<EventHandlerPayloads[Key]>
+    handler?: EventHandler<EventPayloadMap[Key]>
 ): void
 ```
 
 #### Parameters
-- `key`: The event key to remove the handler from. Must be a key of `EventHandlerPayloads`.
+- `key`: The event key to remove the handler from. Must be a key of `EventPayloadMap`.
 - `handler` (optional): The specific handler function to remove. If not provided, all handlers for the given key will be removed.
 
 #### Returns
@@ -577,17 +577,17 @@ Synchronously emits an event with the specified key and payload.
 #### Signature
 
 ```ts
-emit<Key extends keyof EventHandlerPayloads>(
+emit<Key extends keyof EventPayloadMap>(
     key: Key,
     c: Context,
-    payload: EventHandlerPayloads[Key]
+    payload: EventPayloadMap[Key]
 ): void
 ```
 
 #### Parameters
-- `key`: The event key to emit. Must be a key of `EventHandlerPayloads`.
+- `key`: The event key to emit. Must be a key of `EventPayloadMap`.
 - `c`: The current Hono context object.
-- `payload`: The payload to pass to the event handlers. The type of the payload is inferred from the `EventHandlerPayloads` type.
+- `payload`: The payload to pass to the event handlers. The type of the payload is inferred from the `EventPayloadMap` type.
 
 #### Returns
 
@@ -609,18 +609,18 @@ Asynchronously emits an event with the specified key and payload.
 #### Signature
 
 ```ts
-emitAsync<Key extends keyof EventHandlerPayloads>(
+emitAsync<Key extends keyof EventPayloadMap>(
     key: Key,
     c: Context,
-    payload: EventHandlerPayloads[Key],
+    payload: EventPayloadMap[Key],
     options?: EmitAsyncOptions
 ): Promise<void>
 ```
 
 #### Parameters
-- `key`: The event key to emit. Must be a key of `EventHandlerPayloads`.
+- `key`: The event key to emit. Must be a key of `EventPayloadMap`.
 - `c`: The current Hono context object.
-- `payload`: The payload to pass to the event handlers. The type of the payload is inferred from the `EventHandlerPayloads` type.
+- `payload`: The payload to pass to the event handlers. The type of the payload is inferred from the `EventPayloadMap` type.
 - `options` (optional): An object containing options for the asynchronous emission. 
    Currently, the only option is `mode`, which can be `'concurrent'` (default) or `'sequencial'`.
     - The `'concurrent'` mode will call all handlers concurrently (at the same time) and resolve or reject (with aggregated errors) after all handlers settle.
@@ -663,6 +663,13 @@ An object type containing event handlers for multiple event types/keys.
 type EventHandlers<T, E extends Env = Env> = { [K in keyof T]?: EventHandler<T[K], E>[] }
 ```
 
+### EventPayloadMap
+An object type containing event keys and their corresponding payload types.
+
+```ts
+type EventPayloadMap = Record<EventKey, any>
+```
+
 ### EmitAsyncOptions
 An object type containing options for the `emitAsync` method.
 
@@ -677,14 +684,14 @@ type EmitAsyncOptions = {
 An interface representing an event emitter.
 
 ```ts
-interface Emitter<EventHandlerPayloads> {
-   on<Key extends keyof EventHandlerPayloads>(key: Key, handler: EventHandler<EventHandlerPayloads[Key]>): void;
-   off<Key extends keyof EventHandlerPayloads>(key: Key, handler?: EventHandler<EventHandlerPayloads[Key]>): void;
-   emit<Key extends keyof EventHandlerPayloads>(key: Key, c: Context, payload: EventHandlerPayloads[Key]): void;
-   emitAsync<Key extends keyof EventHandlerPayloads>(
+interface Emitter<EventPayloadMap> {
+   on<Key extends keyof EventPayloadMap>(key: Key, handler: EventHandler<EventPayloadMap[Key]>): void;
+   off<Key extends keyof EventPayloadMap>(key: Key, handler?: EventHandler<EventPayloadMap[Key]>): void;
+   emit<Key extends keyof EventPayloadMap>(key: Key, c: Context, payload: EventPayloadMap[Key]): void;
+   emitAsync<Key extends keyof EventPayloadMap>(
            key: Key,
            c: Context,
-           payload: EventHandlerPayloads[Key],
+           payload: EventPayloadMap[Key],
            options?: EmitAsyncOptions
    ): Promise<void>;
 }
