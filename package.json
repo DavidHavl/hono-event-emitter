@@ -10,15 +10,13 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "test": "vitest --run",
     "coverage": "vitest run --coverage",
     "build": "tsup ./src/index.ts --format esm,cjs --dts",
     "lint": "biome lint ./src/*.ts",
-    "lint:fix": "biome lint --apply ./src/*.ts",
+    "lint:fix": "biome lint --write ./src/*.ts",
     "format": "biome format ./src/*.ts",
     "format:fix": "biome format --write ./src/*.ts"
   },
@@ -30,14 +28,7 @@
     }
   },
   "license": "MIT",
-  "keywords": [
-    "hono",
-    "event-emitter",
-    "cloudflare",
-    "workers",
-    "nodejs",
-    "events"
-  ],
+  "keywords": ["hono", "event-emitter", "cloudflare", "workers", "nodejs", "events"],
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
     "access": "public"
@@ -51,14 +42,14 @@
     "url": "https://github.com/DavidHavl/hono-event-emitter/issues"
   },
   "peerDependencies": {
-    "hono": "*"
+    "hono": "^4.4.13"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
     "@vitest/coverage-v8": "^1.6.0",
-    "hono": "^3.11.7",
-    "tsup": "^8.0.1",
+    "hono": "^4.4.13",
+    "tsup": "^8.1.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.0.4"
+    "vitest": "^1.6.0"
   }
 }
