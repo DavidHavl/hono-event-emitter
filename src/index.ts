@@ -10,6 +10,7 @@ export type EventHandler<T, E extends Env = Env> = (c: Context<E>, payload: T) =
 export type EventHandlers<T> = { [K in keyof T]?: EventHandler<T[K]>[] };
 export type EventPayloadMap = { [key: string]: unknown };
 export type EmitAsyncOptions = { mode: 'concurrent' | 'sequencial' };
+export type EventEmitterOptions = { maxHandlers?: number };
 
 export interface Emitter<EPMap extends EventPayloadMap> {
   on<Key extends keyof EPMap>(key: Key, handler: EventHandler<EPMap[Key]>): void;
@@ -48,7 +49,9 @@ export const defineHandlers = <EPMap extends EventPayloadMap, E extends Env = En
 /**
  * Create Event Emitter instance.
  *
- * @param {EventHandlers} eventHandlers - Event handlers to be registered.
+ * @template EPMap - The event payload map.
+ * @param {EventHandlers<EPMap>} [eventHandlers] - Event handlers to be registered.
+ * @param {EventEmitterOptions} [options] - Options for the event emitter.
  * @returns {Emitter} The EventEmitter instance.
  *
  * @example
@@ -112,7 +115,10 @@ export const defineHandlers = <EPMap extends EventPayloadMap, E extends Env = En
  * ```
  *
  */
-export const createEmitter = <EPMap extends EventPayloadMap>(eventHandlers?: EventHandlers<EPMap>): Emitter<EPMap> => {
+export const createEmitter = <EPMap extends EventPayloadMap>(
+  eventHandlers?: EventHandlers<EPMap>,
+  options?: EventEmitterOptions,
+): Emitter<EPMap> => {
   // A map of event keys and their corresponding event handlers.
   const handlers: Map<EventKey, EventHandler<unknown>[]> = eventHandlers
     ? new Map(Object.entries(eventHandlers))
@@ -133,6 +139,15 @@ export const createEmitter = <EPMap extends EventPayloadMap>(eventHandlers?: Eve
         handlers.set(key as EventKey, []);
       }
       const handlerArray = handlers.get(key as EventKey) as Array<EventHandler<EPMap[Key]>>;
+      const limit = options?.maxHandlers ?? 10;
+      if (handlerArray.length >= limit) {
+        throw new RangeError(
+          `Max handlers limit (${limit}) reached for the event "${String(key)}". 
+          This may indicate a memory leak, 
+          perhaps due to adding anonymous function as handler within middleware or request handler.
+          Check your code or consider increasing limit using options.maxHandlers.`,
+        );
+      }
       if (!handlerArray.includes(handler)) {
         handlerArray.push(handler);
       }
@@ -218,7 +233,9 @@ export const createEmitter = <EPMap extends EventPayloadMap>(eventHandlers?: Eve
  *
  * @see {@link https://github.com/honojs/middleware/tree/main/packages/event-emitter}
  *
- * @param {EventHandlers} eventHandlers - Event handlers to be registered.
+ * @template EPMap - The event payload map.
+ * @param {EventHandlers<EPMap>} [eventHandlers] - Event handlers to be registered.
+ * @param {EventEmitterOptions} [options] - Options for the event emitter.
  * @returns {MiddlewareHandler} The middleware handler function.
  *
  * @example
@@ -294,9 +311,12 @@ export const createEmitter = <EPMap extends EventPayloadMap>(eventHandlers?: Eve
  * })
  * ```
  */
-export const emitter = <EPMap extends EventPayloadMap>(eventHandlers?: EventHandlers<EPMap>): MiddlewareHandler => {
+export const emitter = <EPMap extends EventPayloadMap>(
+  eventHandlers?: EventHandlers<EPMap>,
+  options?: EventEmitterOptions,
+): MiddlewareHandler => {
   // Create new instance to share with any middleware and handlers
-  const instance = createEmitter<EPMap>(eventHandlers);
+  const instance = createEmitter<EPMap>(eventHandlers, options);
   return async (c, next) => {
     c.set('emitter', instance);
     await next();

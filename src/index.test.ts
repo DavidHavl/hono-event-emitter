@@ -213,6 +213,50 @@ describe('Event Emitter Middleware', () => {
       expect(() => ee.on('test', 'not a function' as any)).toThrow(TypeError);
     });
 
+    it('should throw RangeError when max handlers limit is reached', () => {
+      type EventPayloadMap = { test: string };
+      const emitter = createEmitter<EventPayloadMap>({}, { maxHandlers: 3 });
+      emitter.on('test', vi.fn());
+      emitter.on('test', vi.fn());
+      emitter.on('test', vi.fn());
+      expect(() => emitter.on('test', vi.fn())).toThrow(RangeError);
+    });
+
+    it('should use default max handlers limit of 10 when not specified', () => {
+      type EventPayloadMap = { testEvent: string };
+      const emitter = createEmitter<EventPayloadMap>();
+      for (let i = 0; i < 10; i++) {
+        emitter.on('testEvent', vi.fn());
+      }
+      expect(() => emitter.on('testEvent', vi.fn())).toThrow(RangeError);
+    });
+
+    it('should allow different events to have their own handler counts', () => {
+      type EventPayloadMap = { test1: string; test2: string };
+      const emitter = createEmitter<EventPayloadMap>({}, { maxHandlers: 2 });
+      emitter.on('test1', vi.fn());
+      emitter.on('test1', vi.fn());
+      emitter.on('test2', vi.fn());
+      expect(() => emitter.on('test1', vi.fn())).toThrow(RangeError);
+      expect(() => emitter.on('test2', vi.fn())).not.toThrow();
+    });
+
+    it('should include event key in error message when limit is reached', () => {
+      type EventPayloadMap = { specificEvent: string };
+      const emitter = createEmitter<EventPayloadMap>({}, { maxHandlers: 1 });
+      emitter.on('specificEvent', vi.fn());
+      expect(() => emitter.on('specificEvent', vi.fn())).toThrow(/specificEvent/);
+    });
+
+    it('should allow setting custom max handlers limit', () => {
+      type EventPayloadMap = { test: string };
+      const emitter = createEmitter<EventPayloadMap>({}, { maxHandlers: 5 });
+      for (let i = 0; i < 5; i++) {
+        emitter.on('test', vi.fn());
+      }
+      expect(() => emitter.on('test', vi.fn())).toThrow(RangeError);
+    });
+
     it('should do nothing when emitting an event with no handlers', () => {
       type EventPayloadMap = {
         test: string;

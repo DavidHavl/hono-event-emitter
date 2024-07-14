@@ -359,12 +359,14 @@ Creates a Hono middleware that adds an event emitter to the context.
 
 ```ts
 function emitter<EPMap extends EventPayloadMap>(
-    eventHandlers?: EventHandlers<EPMap>
+    eventHandlers?: EventHandlers<EPMap>,
+    options?: EventEmitterOptions
 ): MiddlewareHandler
 ```
 
 #### Parameters
 - `eventHandlers` - (optional): An object containing initial event handlers. Each key is event name and value is array of event handlers. Use `defineHandlers` function to create fully typed event handlers.
+- `options` - (optional): An object containing options for the emitter. Currently, the only option is `maxHandlers`, which is the maximum number of handlers that can be added to an event. The default is `10`.
 
 #### Returns
 A Hono middleware function that adds an `Emitter` instance to the context under the key 'emitter'.
@@ -381,12 +383,14 @@ Creates new instance of event emitter with provided handlers. This is usefull wh
 
 ```ts
 function createEmitter<EPMap extends EventPayloadMap>(
-    eventHandlers?: EventHandlers<EPMap>
+    eventHandlers?: EventHandlers<EPMap>,
+    options?: EventEmitterOptions
 ): Emitter<EPMap>
 ```
 
 #### Parameters
 - `eventHandlers` - (optional): An object containing initial event handlers. Each key is event name and value is array of event handlers.
+- `options` - (optional): An object containing options for the emitter. Currently, the only option is `maxHandlers`, which is the maximum number of handlers that can be added to an event. The default is `10`.
 
 #### Returns
 
@@ -668,6 +672,14 @@ An object type containing event keys and their corresponding payload types.
 
 ```ts
 type EventPayloadMap = Record<EventKey, any>
+```
+
+### EventEmitterOptions
+
+An object type containing options for the `Emitter` class.
+
+```ts
+type EventEmitterOptions = { maxHandlers?: number };
 ```
 
 ### EmitAsyncOptions
