@@ -356,10 +356,10 @@ describe('Event Emitter Middleware', () => {
         const _id: string = payload.id;
       });
 
-      // @ts-expect-error
+      // @ts-expect-error - payload should be a number
       ee.emit('numberEvent', {} as Context, 'not a number');
 
-      // @ts-expect-error
+      // @ts-expect-error - payload should be an object with an id property
       ee.emit('objectEvent', {} as Context, { wrongKey: 'value' });
 
       // These should compile without errors
