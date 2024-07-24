@@ -719,11 +719,6 @@ It's especially useful in larger projects or projects with a lot of interactions
 Just imagine you have a user registration feature, and you want to send a welcome email after the user is created. You can do this by emitting an event `user:created` and then listen to this event in another part of your application (e.g. email service).
 ### How is this different to the built-in EventEmitter in Node.js?
 The build-in EventEmitter has huge API surface, weak TypeScript support and does only synchronous event emitting. Hono's event emitter is designed to be minimal, lightweight, edge compatible and fully typed. Additionally, it supports async event handlers.
-### Can I use anonymous functions or closures as event handlers?
-Yes, but only when adding them as argument via either the middleware function `app.use(emitter(handlers))` or the standalone emitter via `createEmitter(handlers)` function.
-Aditionally you can use the `on()` method to add anonymous or closure function as event handler, but only outside of a Hono middleware or request handler!
-This is because middlewares or request handlers run repeatedly on every request, and as anonymous functions can't be checked for equality, it would result in memory leaks and duplicate handlers. 
-You should use named functions if you really want to use the `on()` method inside of middleware or request handler.
 ### Is there a way to define event handlers with types?
 Yes, you can use `defineHandlers` and `defineHandler` functions to define event handlers with types. This way you can leverage TypeScript's type inference and get better type checking.
 ### Does it support async event handlers?
@@ -736,6 +731,11 @@ Nothing. The event will be emitted, but no handlers will be called.
 ### Is it request scoped?
 No, by design it's not request scoped. The same Emitter instance is shared across all requests.
 This aproach prevents memory leaks (especially when using closures or dealing with large data structures within the handlers) and additional strain on Javascript garbage collector.
+### Can I use anonymous functions or closures as event handlers?
+Yes, but only when adding them as argument via either the middleware function `app.use(emitter(handlers))` or the standalone emitter via `createEmitter(handlers)` function.
+Aditionally you can use the `on()` method to add anonymous or closure function as event handler, but only outside of a Hono middleware or request handler!
+This is because middlewares or request handlers run repeatedly on every request, and as anonymous functions are created as new object every time (and therefore can't be checked for equality), it would result in memory leaks and duplicate handlers.
+You should use named functions if you really want to use the `on()` method inside of middleware or request handler.
 
 ## Author
 
