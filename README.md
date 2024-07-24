@@ -733,6 +733,9 @@ Nothing. The event will be emitted, but no handlers will be called.
 ### Using `emitAsync` function, what happens if one or more of the handlers reject?
 - If using `{ mode = 'concurrent' }` in the options (which is the default), it will call all handlers concurrently (at the same time) and resolve or reject (with aggregated errors) after all handlers settle.
 - If using `{ mode = 'sequencial' }` in the options, it will call handlers one by one and resolve when all handlers are done or reject when the first error is thrown, not executing rest of the handlers.
+### Is it request scoped?
+No, by design it's not request scoped. The same Emitter instance is shared across all requests.
+This aproach prevents memory leaks (especially when using closures or dealing with large data structures within the handlers) and additional strain on Javascript garbage collector.
 
 ## Author
 
