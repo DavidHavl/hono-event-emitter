@@ -31,11 +31,11 @@ describe('Event Emitter Middleware', () => {
       const ee = createEmitter<EventPayloadMap>();
       const handler = vi.fn();
       ee.on('test', handler);
-      ee.emit('test', {} as Context, 'payload');
+      ee.emit({} as Context, 'test', 'payload');
       expect(handler).toHaveBeenCalledWith({}, 'payload');
 
       ee.off('test', handler);
-      ee.emit('test', {} as Context, 'payload');
+      ee.emit({} as Context, 'test', 'payload');
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
@@ -49,7 +49,7 @@ describe('Event Emitter Middleware', () => {
       ee.on('test', handler1);
       ee.on('test', handler2);
       ee.off('test');
-      ee.emit('test', {} as Context, 'payload');
+      ee.emit({} as Context, 'test', 'payload');
       expect(handler1).not.toHaveBeenCalled();
       expect(handler2).not.toHaveBeenCalled();
     });
@@ -63,7 +63,7 @@ describe('Event Emitter Middleware', () => {
       const handler2 = vi.fn();
       ee.on('test', handler1);
       ee.on('test', handler2);
-      ee.emit('test', {} as Context, 'payload');
+      ee.emit({} as Context, 'test', 'payload');
       expect(handler1).toHaveBeenCalledWith({}, 'payload');
       expect(handler2).toHaveBeenCalledWith({}, 'payload');
     });
@@ -76,7 +76,7 @@ describe('Event Emitter Middleware', () => {
       const handler = vi.fn();
       ee.on('test', handler);
       ee.on('test', handler);
-      ee.emit('test', {} as Context, 'payload');
+      ee.emit({} as Context, 'test', 'payload');
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
@@ -101,7 +101,7 @@ describe('Event Emitter Middleware', () => {
       ee.on('test', handler2);
 
       const start = Date.now();
-      await ee.emitAsync('test', {} as Context, { id: '123' }, { mode: 'concurrent' });
+      await ee.emitAsync({} as Context, 'test', { id: '123' }, { mode: 'concurrent' });
       const end = Date.now();
 
       // The total time should be close to 100ms (since handlers run concurrently)
@@ -133,7 +133,7 @@ describe('Event Emitter Middleware', () => {
       ee.on('test', handler1);
       ee.on('test', handler2);
       const start = Date.now();
-      await ee.emitAsync('test', {} as Context, { id: '123' }, { mode: 'sequencial' });
+      await ee.emitAsync({} as Context, 'test', { id: '123' }, { mode: 'sequencial' });
       const end = Date.now();
 
       // The total time should be close to 200ms (since handlers run sequentially)
@@ -156,9 +156,9 @@ describe('Event Emitter Middleware', () => {
       const handler2 = vi.fn().mockRejectedValue(new Error('Error 2'));
       ee.on('test', handler1);
       ee.on('test', handler2);
-      await expect(ee.emitAsync('test', {} as Context, 'payload')).rejects.toThrow(AggregateError);
+      await expect(ee.emitAsync({} as Context, 'test', 'payload')).rejects.toThrow(AggregateError);
       try {
-        await ee.emitAsync('test', {} as Context, 'payload', { mode: 'concurrent' });
+        await ee.emitAsync({} as Context, 'test', 'payload', { mode: 'concurrent' });
         // Should not reach here
         expect(true).toBe(false);
       } catch (error) {
@@ -191,7 +191,7 @@ describe('Event Emitter Middleware', () => {
       ee.on('test', handler2);
 
       try {
-        await ee.emitAsync('test', {} as Context, { id: '789' }, { mode: 'sequencial' });
+        await ee.emitAsync({} as Context, 'test', { id: '789' }, { mode: 'sequencial' });
         // Should not reach here
         expect(true).toBe(false);
       } catch (error) {
@@ -262,7 +262,7 @@ describe('Event Emitter Middleware', () => {
         test: string;
       };
       const ee = createEmitter<EventPayloadMap>();
-      expect(() => ee.emit('test', {} as Context, 'payload')).not.toThrow();
+      expect(() => ee.emit({} as Context, 'test', 'payload')).not.toThrow();
     });
 
     it('should do nothing when emitting an async event with no handlers', async () => {
@@ -270,7 +270,7 @@ describe('Event Emitter Middleware', () => {
         test: string;
       };
       const ee = createEmitter<EventPayloadMap>();
-      await expect(ee.emitAsync('test', {} as Context, 'payload')).resolves.toBeUndefined();
+      await expect(ee.emitAsync({} as Context, 'test', 'payload')).resolves.toBeUndefined();
     });
   });
 
@@ -313,7 +313,7 @@ describe('Event Emitter Middleware', () => {
       expect(context.set).toHaveBeenCalledWith('emitter', expect.any(Object));
       expect(capturedEmitter).toBeDefined();
 
-      capturedEmitter?.emit('test', {} as Context, 'payload');
+      capturedEmitter?.emit({} as Context, 'test', 'payload');
       expect(handler).toHaveBeenCalledWith({}, 'payload');
     });
   });
@@ -363,8 +363,8 @@ describe('Event Emitter Middleware', () => {
       ee.emit('objectEvent', {} as Context, { wrongKey: 'value' });
 
       // These should compile without errors
-      ee.emit('numberEvent', {} as Context, 42);
-      ee.emit('objectEvent', {} as Context, { id: 'test' });
+      ee.emit({} as Context, 'numberEvent', 42);
+      ee.emit({} as Context, 'objectEvent', { id: 'test' });
     });
   });
   describe('Hono request flow', () => {
@@ -387,7 +387,7 @@ describe('Event Emitter Middleware', () => {
       let currentContext = null;
       app.post('/todo', (c) => {
         currentContext = c;
-        c.get('emitter').emit('todo:created', c, { id: '2', text: 'Buy milk' });
+        c.get('emitter').emit(c, 'todo:created', { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
@@ -415,7 +415,7 @@ describe('Event Emitter Middleware', () => {
       let currentContext = null;
       app.post('/todo', async (c) => {
         currentContext = c;
-        await c.get('emitter').emitAsync('todo:created', c, { id: '2', text: 'Buy milk' });
+        await c.get('emitter').emitAsync(c, 'todo:created', { id: '2', text: 'Buy milk' });
         return c.json({ message: 'Todo created' });
       });
 
