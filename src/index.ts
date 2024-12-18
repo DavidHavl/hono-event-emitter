@@ -15,10 +15,10 @@ export type EventEmitterOptions = { maxHandlers?: number };
 export interface Emitter<EPMap extends EventPayloadMap> {
   on<Key extends keyof EPMap>(key: Key, handler: EventHandler<EPMap[Key]>): void;
   off<Key extends keyof EPMap>(key: Key, handler?: EventHandler<EPMap[Key]>): void;
-  emit<Key extends keyof EPMap>(key: Key, c: Context, payload: EPMap[Key]): void;
+  emit<Key extends keyof EPMap>(c: Context, key: Key, payload: EPMap[Key]): void;
   emitAsync<Key extends keyof EPMap>(
-    key: Key,
     c: Context,
+    key: Key,
     payload: EPMap[Key],
     options?: EmitAsyncOptions,
   ): Promise<void>;
@@ -180,7 +180,7 @@ export const createEmitter = <EPMap extends EventPayloadMap>(
      * @param {Context} c - The current context object
      * @param {EventPayloadMap[keyof EventPayloadMap]} payload - Data passed to each invoked handler
      */
-    emit<Key extends keyof EPMap>(key: Key, c: Context, payload: EPMap[Key]) {
+    emit<Key extends keyof EPMap>(c: Context, key: Key, payload: EPMap[Key]) {
       const handlerArray = handlers.get(key as EventKey);
       if (handlerArray) {
         for (const handler of handlerArray) {
@@ -199,8 +199,8 @@ export const createEmitter = <EPMap extends EventPayloadMap>(
      * @throws {AggregateError} If any handler encounters an error.
      */
     async emitAsync<Key extends keyof EPMap>(
-      key: Key,
       c: Context,
+      key: Key,
       payload: EPMap[Key],
       options: EmitAsyncOptions = { mode: 'concurrent' },
     ) {
